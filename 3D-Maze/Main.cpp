@@ -12,12 +12,23 @@ const int HEIGHT = 500;
 const int colCount = 10;
 const int rowCount = 10;
 int mazeCount = colCount * rowCount;
-int *mazeArray = (int *)malloc(mazeCount * sizeof(int *));
 
 point4 points[numVertices];
 color4 colors[numVertices];
 
+color4 vertex_colors[8] = {
+	color4(0.0, 0.0, 0.0, 1.0),  // black
+	color4(1.0, 0.0, 0.0, 1.0),  // red
+	color4(1.0, 1.0, 0.0, 1.0),  // yellow
+	color4(0.0, 1.0, 0.0, 1.0),  // green
+	color4(0.0, 0.0, 1.0, 1.0),  // blue
+	color4(1.0, 0.0, 1.0, 1.0),  // magenta
+	color4(1.0, 1.0, 1.0, 1.0),  // white
+	color4(0.0, 1.0, 1.0, 1.0)   // cyan
+};
+
 class Cell {
+public:
 	int numCell;
 	bool wallTop = true;
 	bool wallRight = true;
@@ -26,14 +37,46 @@ class Cell {
 	bool visited = false;
 };
 
-vector<Cell> grid;
+int index = 0;
+void quad(int a, int b, int c, int d, point4 vertices[numOfCubePoints]) {
+	colors[index] = vertex_colors[a];
+	points[index] = vertices[a];
+	index++;
+	colors[index] = vertex_colors[b];
+	points[index] = vertices[b];
+	index++;
+	colors[index] = vertex_colors[c];
+	points[index] = vertices[c];
+	index++;
+	colors[index] = vertex_colors[a];
+	points[index] = vertices[a];
+	index++;
+	colors[index] = vertex_colors[c];
+	points[index] = vertices[c];
+	index++;
+	colors[index] = vertex_colors[d];
+	points[index] = vertices[d];
+	index++;
+
+}
+vector<Cell> mazeArray;
 Cell currentCell;
 stack<Cell> cellPath;	// for recording the modification of current cell into stack
 
+point4* getBoxPoints(int i) {
 
+}
 void init() {
-	const float start_point_x = 1;
-	const float start_point_y = 1;
+	for (int i = 0; i < mazeCount; i++) {
+		Cell cell;
+		mazeArray[i] = cell;
+
+		point4* vertices = getBoxPoints(i);
+		if (!mazeArray[i].wallRight)
+			quad(1, 0, 4, 5, vertices);
+	}
+
+
 }
 
 void display() {
