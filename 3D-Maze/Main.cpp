@@ -64,7 +64,13 @@ Cell currentCell;
 stack<Cell> cellPath;	// for recording the modification of current cell into stack
 
 point4* getBoxPoints(int i) {
-
+	const float startPointX = 1;
+	const float startPointY = 1;
+	
+	point4 vertices[numOfCubePoints] = {
+		point4(),
+	};
+	
 }
 void init() {
 	for (int i = 0; i < mazeCount; i++) {
