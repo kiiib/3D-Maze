@@ -67,12 +67,13 @@ point4* getBoxPoints(int i) {
 	const float startPointX = 1;
 	const float startPointY = 1;
 	
-	point4 vertices[numOfCubePoints] = {
+	/*point4 vertices[numOfCubePoints] = {
 		point4(),
-	};
+	};*/
 	
 }
-void init() {
+void generateMaze() {
+	// generate the maze's each cell
 	for (int i = 0; i < mazeCount; i++) {
 		Cell cell;
 		mazeArray[i] = cell;
@@ -81,8 +82,9 @@ void init() {
 		if (!mazeArray[i].wallRight)
 			quad(1, 0, 4, 5, vertices);
 	}
-
-
+}
+void initMaze() {
+	generateMaze();
 }
 
 void display() {
@@ -120,7 +122,8 @@ int main(int argc, char **argv) {
 
 	glewInit();
 
-	init();
+	srand((unsigned)time(NULL));
+	initMaze();
 
 	glutDisplayFunc(display);
 	glutKeyboardFunc(keyboard);
