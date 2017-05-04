@@ -7,11 +7,19 @@ typedef Angel::vec4 color4;
 typedef Angel::vec4 point4;
 const int numVertices = 1600;
 const int numOfCubePoints = 8;
-const int WIDTH = 500;
-const int HEIGHT = 500;
+const int WINDOW_WIDTH = 1366;
+const int WINDOW_HEIGHT = 768;
 const int colCount = 10;
 const int rowCount = 10;
 int mazeCount = colCount * rowCount;
+
+float up_down = 0;
+float playerLookAtX = 0;
+float playerLookAtZ = 0;
+GLuint bufferMaze;
+point4 eye(1, 1.5, 1, 1.0);
+float angleNumber = 45;
+GLuint vaoMaze;
 
 point4 points[numVertices];
 color4 colors[numVertices];
@@ -27,14 +35,77 @@ color4 vertex_colors[8] = {
 	color4(0.0, 1.0, 1.0, 1.0)   // cyan
 };
 
+GLfloat radius = 1.0;
+GLfloat theta = 0.0;
+GLfloat phi = 0.0;
+
+const GLfloat  dr = 5.0 * DegreesToRadians;
+GLuint  model_view;
+GLfloat  left = -1.0, right = 1.0;
+GLfloat  bottom = -1.0, top = 1.0;
+GLfloat  zNear = 0.5, zFar = 100.0;
+
+GLuint  projection;
+
+int mazeIndex(int x, int y) {
+	if (x < 0 || y < 0 || x > colCount - 1 || y > rowCount - 1)
+		return -1;
+
+	return x + y * rowCount;	// depents on row count number, such as rowCount = 10, maze: 10x10
+}
+
 class Cell {
 public:
 	int numCell;
+	int x;
+	int y;
 	bool wallTop = true;
 	bool wallRight = true;
 	bool wallBottom = true;
 	bool wallLeft = true;
 	bool visited = false;
+	bool isExist = true;
+
+	Cell checkNeighbors(vector<Cell> myMaze) {
+		vector<Cell> neighbors;
+
+		if (x - 1 >= 0) {
+			Cell top = myMaze[mazeIndex(x, y - 1)];
+			if (!top.visited) {
+				neighbors.push_back(top);
+			}
+		}
+		if (x + 1 < colCount) {
+			Cell right = myMaze[mazeIndex(x + 1, y)];
+			if (!right.visited) {
+				neighbors.push_back(right);
+			}
+		}
+		if (y + 1 < rowCount) {
+			Cell bottom = myMaze[mazeIndex(x, y + 1)];
+			if (!bottom.visited) {
+				neighbors.push_back(bottom);
+			}
+		}
+		if (x - 1 >= 0) {
+			Cell left = myMaze[mazeIndex(x - 1, y)];
+			if (!left.visited) {
+				neighbors.push_back(left);
+			}
+		}
+		// if neighors are exist, pick up a random neigbor
+		if (neighbors.size() > 0) {
+			int random = (floor)(rand() % neighbors.size());
+			return neighbors[random];
+		}
+		else {
+			// if neighbor doesn't exists, return none
+			Cell nullCell;
+			nullCell.isExist = false;
+			return nullCell;
+		}
+	}
+
 };
 
 int index = 0;
@@ -59,34 +130,188 @@ void quad(int a, int b, int c, int d, point4 vertices[numOfCubePoints]) {
 	index++;
 
 }
-vector<Cell> mazeArray;
+vector<Cell> maze;
 Cell currentCell;
 stack<Cell> cellPath;	// for recording the modification of current cell into stack
 
+void removeWalls(Cell currentCell, Cell neighborCell) {
+	int x = currentCell.x - neighborCell.x;
+	int y = currentCell.y - neighborCell.y;
+
+	/*
+	x = 1 means neighbor in the left side
+	remove the current cell's left wall and neighbor's right wall
+
+	x = -1 means neighbor in the right side
+	remove the current cell's right wall and neighbor's left wall
+
+	y = 1 means neighbor in the top side
+	remove the current cell's top wall and neighbor's bottom wall
+
+	y = -1 means neighbor in the bottom side
+	remove the current cell's bottom wall and neighbor's top wall
+	*/
+	if (x == 1) {
+		maze[currentCell.numCell].wallLeft = false;
+		maze[neighborCell.numCell].wallRight = false;
+	}
+	if (x == -1) {
+		maze[currentCell.numCell].wallRight = false;
+		maze[neighborCell.numCell].wallLeft = false;
+	}
+	if (y == 1) {
+		maze[currentCell.numCell].wallTop = false;
+		maze[neighborCell.numCell].wallBottom = false;
+	}
+	if (y == -1) {
+		maze[currentCell.numCell].wallBottom = false;
+		maze[neighborCell.numCell].wallTop = false;
+	}
+}
+
+// OpenGL initialization
 point4* getBoxPoints(int i) {
 	const float startPointX = 1;
 	const float startPointY = 1;
-	
-	/*point4 vertices[numOfCubePoints] = {
-		point4(),
-	};*/
-	
+	float mazeRatio = 2;
+	int col = i % colCount;
+	int row = (i - col) / rowCount;
+	point4 vertices[numOfCubePoints] = {
+		point4(startPointX + col * mazeRatio,mazeRatio * 0.5, startPointY + row * mazeRatio,   1.0),
+		point4(startPointX + col * mazeRatio, mazeRatio *  0.5, startPointY + row * mazeRatio + mazeRatio,  1.0),
+		point4(startPointX + col * mazeRatio + mazeRatio, mazeRatio *  0.5, startPointY + row * mazeRatio + mazeRatio,  1.0),
+		point4(startPointX + col * mazeRatio + mazeRatio, mazeRatio *  0.5, startPointY + row * mazeRatio,  1.0),
+		point4(startPointX + col * mazeRatio,mazeRatio * -0.5, startPointY + row * mazeRatio,  1.0),
+		point4(startPointX + col * mazeRatio, mazeRatio * -0.5, startPointY + row * mazeRatio + mazeRatio,  1.0),
+		point4(startPointX + col * mazeRatio + mazeRatio, mazeRatio *  -0.5, startPointY + row * mazeRatio + mazeRatio, 1.0),
+		point4(startPointX + col * mazeRatio + mazeRatio, mazeRatio *  -0.5, startPointY + row * mazeRatio, 1.0)
+	};
+	return vertices;
 }
-void generateMaze() {
-	// generate the maze's each cell
-	for (int i = 0; i < mazeCount; i++) {
-		Cell cell;
-		mazeArray[i] = cell;
 
+void generateMaze() {
+	int numCell = 0;
+	// generate the maze's each cell
+	for (int j = 0; j < rowCount; j++) {
+		for (int i = 0; i < colCount; i++) {
+			Cell cell;
+			cell.x = j;
+			cell.y = i;
+			cell.numCell = numCell;
+			// push each cell into grid
+			maze.push_back(cell);
+			numCell++;
+		}
+	}
+}
+void drawMaze() {
+	currentCell = maze[0];	// set the first cell is current
+	maze[currentCell.numCell].visited = true;
+
+	do {
+		Cell nextCell = currentCell.checkNeighbors(maze);
+		if (nextCell.isExist) {
+			// mark the next cell is visited
+			maze[nextCell.numCell].visited = true;
+			// push the current cell into stack
+			cellPath.push(currentCell);
+
+			// remove the wall between the current cell and the chosen cell
+			removeWalls(currentCell, nextCell);
+
+			// set it to be the next one
+			currentCell = nextCell;
+		}
+		else if (!nextCell.isExist) {
+			// confirm the stack is not empty and pop an element(the lastest)
+			cellPath.pop();
+			currentCell = cellPath.top();	// get the last cell
+		}
+	} while (currentCell.numCell != 0);	// until back to the start site, stop the loop
+
+	for (int i = 0; i < maze.size(); i++) {
 		point4* vertices = getBoxPoints(i);
-		if (!mazeArray[i].wallRight)
+
+		if (maze[i].wallRight)
 			quad(1, 0, 4, 5, vertices);
+		if (maze[i].wallTop)
+			quad(3, 0, 4, 7, vertices);
+		if (maze[i].wallLeft)
+			quad(2, 3, 7, 6, vertices);
+		if (maze[i].wallBottom)
+			quad(6, 5, 1, 2, vertices);
 	}
 }
 void initMaze() {
+	srand((unsigned)time(NULL));
 	generateMaze();
-}
+	drawMaze();
 
+	glGenVertexArrays(1, &vaoMaze);
+	glBindVertexArray(vaoMaze);
+	glGenBuffers(1, &bufferMaze);
+	glBindBuffer(GL_ARRAY_BUFFER, bufferMaze);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(points) + sizeof(colors),
+		NULL, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(points), points);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(points), sizeof(colors), colors);
+
+	GLuint program = InitShader("vshader41.glsl", "fshader41.glsl");
+	glUseProgram(program);
+
+	GLuint vPosition = glGetAttribLocation(program, "vPosition");
+	glEnableVertexAttribArray(vPosition);
+	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0,
+		BUFFER_OFFSET(0));
+
+	GLuint vColor = glGetAttribLocation(program, "vColor");
+	glEnableVertexAttribArray(vColor);
+	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0,
+		BUFFER_OFFSET(sizeof(points)));
+
+	model_view = glGetUniformLocation(program, "model_view");
+	projection = glGetUniformLocation(program, "projection");
+
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_CLAMP);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+}
+int cameraAtWhichWall(point4 eye) {
+
+	for (int i = 0; i < mazeCount; i++) {
+		//int area = maze[i];
+		point4 *box = getBoxPoints(i);
+		int minX = 50000; // 安砞ぃ禬筁@@...
+		int minZ = 50000;// 安砞ぃ禬筁@@...
+
+		int maxX = -minX; // 安砞ぃ禬筁@@...
+		int maxZ = -minZ; // 安砞ぃ禬筁@@...
+
+		for (int j = 0; j < numOfCubePoints; j++) {
+			if (box[j].x > minX) {
+				maxX = box[j].x;
+			}
+
+			if (box[j].z > minZ) {
+				maxZ = box[j].z;
+			}
+
+			if (box[j].x < minX) {
+				minX = box[j].x;
+			}
+
+			if (box[j].z < minZ) {
+				minZ = box[j].z;
+			}
+		}
+
+		if (minX <= eye.x && eye.x <= maxX && minZ <= eye.z && eye.z <= maxZ) {
+			return i;
+		}
+	}
+
+	return -1;
+}
 void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
@@ -115,14 +340,13 @@ int main(int argc, char **argv) {
 
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
-	glutInitWindowSize(1366, 768);
+	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
 	glutInitContextVersion(3, 2);
 	glutInitContextProfile(GLUT_CORE_PROFILE);
 	glutCreateWindow("Color Cube");
 
 	glewInit();
 
-	srand((unsigned)time(NULL));
 	initMaze();
 
 	glutDisplayFunc(display);
