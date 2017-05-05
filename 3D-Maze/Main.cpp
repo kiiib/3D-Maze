@@ -130,7 +130,7 @@ void quad(int a, int b, int c, int d, point4 vertices[numOfCubePoints]) {
 	index++;
 
 }
-vector<Cell> maze;
+vector<Cell> grid;
 Cell currentCell;
 stack<Cell> cellPath;	// for recording the modification of current cell into stack
 
@@ -152,20 +152,20 @@ void removeWalls(Cell currentCell, Cell neighborCell) {
 	remove the current cell's bottom wall and neighbor's top wall
 	*/
 	if (x == 1) {
-		maze[currentCell.numCell].wallLeft = false;
-		maze[neighborCell.numCell].wallRight = false;
+		grid[currentCell.numCell].wallLeft = false;
+		grid[neighborCell.numCell].wallRight = false;
 	}
 	if (x == -1) {
-		maze[currentCell.numCell].wallRight = false;
-		maze[neighborCell.numCell].wallLeft = false;
+		grid[currentCell.numCell].wallRight = false;
+		grid[neighborCell.numCell].wallLeft = false;
 	}
 	if (y == 1) {
-		maze[currentCell.numCell].wallTop = false;
-		maze[neighborCell.numCell].wallBottom = false;
+		grid[currentCell.numCell].wallTop = false;
+		grid[neighborCell.numCell].wallBottom = false;
 	}
 	if (y == -1) {
-		maze[currentCell.numCell].wallBottom = false;
-		maze[neighborCell.numCell].wallTop = false;
+		grid[currentCell.numCell].wallBottom = false;
+		grid[neighborCell.numCell].wallTop = false;
 	}
 }
 
@@ -181,7 +181,7 @@ point4* getBoxPoints(int i) {
 		point4(startPointX + col * mazeRatio, mazeRatio *  0.5, startPointY + row * mazeRatio + mazeRatio,  1.0),
 		point4(startPointX + col * mazeRatio + mazeRatio, mazeRatio *  0.5, startPointY + row * mazeRatio + mazeRatio,  1.0),
 		point4(startPointX + col * mazeRatio + mazeRatio, mazeRatio *  0.5, startPointY + row * mazeRatio,  1.0),
-		point4(startPointX + col * mazeRatio,mazeRatio * -0.5, startPointY + row * mazeRatio,  1.0),
+		point4(startPointX + col * mazeRatio, mazeRatio * -0.5, startPointY + row * mazeRatio,  1.0),
 		point4(startPointX + col * mazeRatio, mazeRatio * -0.5, startPointY + row * mazeRatio + mazeRatio,  1.0),
 		point4(startPointX + col * mazeRatio + mazeRatio, mazeRatio *  -0.5, startPointY + row * mazeRatio + mazeRatio, 1.0),
 		point4(startPointX + col * mazeRatio + mazeRatio, mazeRatio *  -0.5, startPointY + row * mazeRatio, 1.0)
@@ -189,7 +189,7 @@ point4* getBoxPoints(int i) {
 	return vertices;
 }
 
-void generateMaze() {
+void initGrid() {
 	int numCell = 0;
 	// generate the maze's each cell
 	for (int j = 0; j < rowCount; j++) {
@@ -197,22 +197,24 @@ void generateMaze() {
 			Cell cell;
 			cell.x = j;
 			cell.y = i;
+			//cout << i << "   " << j << endl;
 			cell.numCell = numCell;
 			// push each cell into grid
-			maze.push_back(cell);
+			grid.push_back(cell);
 			numCell++;
 		}
 	}
 }
-void drawMaze() {
-	currentCell = maze[0];	// set the first cell is current
-	maze[currentCell.numCell].visited = true;
+void drawGrid() {
+	currentCell = grid[0];	// set the first cell is current
+	grid[currentCell.numCell].visited = true;
 
 	do {
-		Cell nextCell = currentCell.checkNeighbors(maze);
+		Cell nextCell = currentCell.checkNeighbors(grid);
+		//cout << nextCell.numCell << endl;
 		if (nextCell.isExist) {
 			// mark the next cell is visited
-			maze[nextCell.numCell].visited = true;
+			grid[nextCell.numCell].visited = true;
 			// push the current cell into stack
 			cellPath.push(currentCell);
 
@@ -221,6 +223,7 @@ void drawMaze() {
 
 			// set it to be the next one
 			currentCell = nextCell;
+			//cout << "current Cell " << currentCell.numCell << endl;
 		}
 		else if (!nextCell.isExist) {
 			// confirm the stack is not empty and pop an element(the lastest)
@@ -229,7 +232,7 @@ void drawMaze() {
 		}
 	} while (currentCell.numCell != 0);	// until back to the start site, stop the loop
 
-	for (int i = 0; i < maze.size(); i++) {
+	/*for (int i = 0; i < maze.size(); i++) {
 		point4* vertices = getBoxPoints(i);
 
 		if (maze[i].wallRight)
@@ -240,12 +243,12 @@ void drawMaze() {
 			quad(2, 3, 7, 6, vertices);
 		if (maze[i].wallBottom)
 			quad(6, 5, 1, 2, vertices);
-	}
+	}*/
 }
 void initMaze() {
 	srand((unsigned)time(NULL));
-	generateMaze();
-	drawMaze();
+	initGrid();
+	drawGrid();
 
 	glGenVertexArrays(1, &vaoMaze);
 	glBindVertexArray(vaoMaze);
@@ -333,65 +336,65 @@ void specialInput(int key, int x, int y) {
 	glutPostRedisplay();
 }
 void display() {
-	double angle = angleNumber * M_PI / 180;
-	//移動下一個點事前的宣告
-	point4 nextEye(eye.x, eye.y, eye.z, eye.w);
-	//為了做到整個 Camera不是完全貼牆
-	//所以我們用了nextNextEye去跟牆之間保持點距離 才不會等到 Camera完全貼到牆上才發生碰撞(這樣視線比較好)
-	//如果有按下上或下 up_down才會變化 如果是正的就是往前，負的就是往後，記得用完後要設定回0喔
-	point4 nextNextEye(eye.x, eye.y, eye.z, eye.w);
-	nextEye.x = eye.x + cos(angle) * up_down;
-	nextEye.z = eye.z + sin(angle) * up_down;
-	nextNextEye.x = eye.x + cos(angle) * up_down * 5;
-	nextNextEye.z = eye.z + sin(angle) * up_down * 5;
-	up_down = 0;
+	//double angle = angleNumber * M_PI / 180;
+	////移動下一個點事前的宣告
+	//point4 nextEye(eye.x, eye.y, eye.z, eye.w);
+	////為了做到整個 Camera不是完全貼牆
+	////所以我們用了nextNextEye去跟牆之間保持點距離 才不會等到 Camera完全貼到牆上才發生碰撞(這樣視線比較好)
+	////如果有按下上或下 up_down才會變化 如果是正的就是往前，負的就是往後，記得用完後要設定回0喔
+	//point4 nextNextEye(eye.x, eye.y, eye.z, eye.w);
+	//nextEye.x = eye.x + cos(angle) * up_down;
+	//nextEye.z = eye.z + sin(angle) * up_down;
+	//nextNextEye.x = eye.x + cos(angle) * up_down * 5;
+	//nextNextEye.z = eye.z + sin(angle) * up_down * 5;
+	//up_down = 0;
 
-	//取得目前的座標 跟 未來的座標，所在迷宮的位置
-	int cameraCurrentIndex = cameraAtWhichWall(eye);
-	int cameraFutureIndex = cameraAtWhichWall(nextNextEye);
+	////取得目前的座標 跟 未來的座標，所在迷宮的位置
+	//int cameraCurrentIndex = cameraAtWhichWall(eye);
+	//int cameraFutureIndex = cameraAtWhichWall(nextNextEye);
 
-	// std::cout << "CAMERA AT: " << cameraCurrentIndex << std::endl;
-	// std::cout << "FUTURE CAMERA AT: " << cameraFutureIndex << std::endl;
+	//// std::cout << "CAMERA AT: " << cameraCurrentIndex << std::endl;
+	//// std::cout << "FUTURE CAMERA AT: " << cameraFutureIndex << std::endl;
 
-	//開始處理碰撞事件
-	//switch (cameraFutureIndex - cameraCurrentIndex) {
-	//case 0:
-	//	eye = nextEye;
-	//	break;
-	//case -1: // RIGHT
-	//	if (((maze_array[cameraCurrentIndex] >> 3) & 1) != 0 && ((maze_array[cameraFutureIndex] >> 1) & 1) != 0) {
-	//		eye = nextEye;
-	//	}
+	////開始處理碰撞事件
+	////switch (cameraFutureIndex - cameraCurrentIndex) {
+	////case 0:
+	////	eye = nextEye;
+	////	break;
+	////case -1: // RIGHT
+	////	if (((maze_array[cameraCurrentIndex] >> 3) & 1) != 0 && ((maze_array[cameraFutureIndex] >> 1) & 1) != 0) {
+	////		eye = nextEye;
+	////	}
 
-	//	break;
-	//case -10: // BOTTOM
-	//	if (((maze_array[cameraCurrentIndex] >> 2) & 1) != 0 && (maze_array[cameraFutureIndex] & 1) != 0) {
-	//		eye = nextEye;
-	//	}
+	////	break;
+	////case -10: // BOTTOM
+	////	if (((maze_array[cameraCurrentIndex] >> 2) & 1) != 0 && (maze_array[cameraFutureIndex] & 1) != 0) {
+	////		eye = nextEye;
+	////	}
 
-	//	break;
-	//case 1: // LEFT
-	//	if (((maze_array[cameraCurrentIndex] >> 1) & 1) != 0 && ((maze_array[cameraFutureIndex] >> 3) & 1) != 0) {
-	//		eye = nextEye;
-	//	}
+	////	break;
+	////case 1: // LEFT
+	////	if (((maze_array[cameraCurrentIndex] >> 1) & 1) != 0 && ((maze_array[cameraFutureIndex] >> 3) & 1) != 0) {
+	////		eye = nextEye;
+	////	}
 
-	//	break;
-	//case 10: // TOP
-	//	if ((maze_array[cameraCurrentIndex] & 1) != 0 && ((maze_array[cameraFutureIndex] >> 2) & 1) != 0) {
-	//		eye = nextEye;
-	//	}
+	////	break;
+	////case 10: // TOP
+	////	if ((maze_array[cameraCurrentIndex] & 1) != 0 && ((maze_array[cameraFutureIndex] >> 2) & 1) != 0) {
+	////		eye = nextEye;
+	////	}
 
-	//	break;
-	//}
+	////	break;
+	////}
 
 
-	playerLookAtX = eye.x + cos(angle) * 10;
-	playerLookAtZ = eye.z + sin(angle) * 10;
+	//playerLookAtX = eye.x + cos(angle) * 10;
+	//playerLookAtZ = eye.z + sin(angle) * 10;
 
-	// std::cout << eye.x << ", " << eye.y << ", " << eye.z << ", " << angleNumber << std::endl;
+	//// std::cout << eye.x << ", " << eye.y << ", " << eye.z << ", " << angleNumber << std::endl;
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	point4  at(playerLookAtX, 0.0, playerLookAtZ, 1.0);
+	/*point4  at(playerLookAtX, 0.0, playerLookAtZ, 1.0);
 	vec4    up(0.0, 1.0, 0.0, 0.0);
 
 	mat4  mv = LookAt(eye, at, up);
@@ -402,7 +405,7 @@ void display() {
 	glBindVertexArray(bufferMaze);
 	glDrawArrays(GL_TRIANGLES, 0, numVertices);
 	glEnable(GL_LIGHT0);
-	glutSwapBuffers();
+	glutSwapBuffers();*/
 }
 
 void keyboard(unsigned char key, int x, int y) {
