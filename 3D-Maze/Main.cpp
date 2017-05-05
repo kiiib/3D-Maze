@@ -279,7 +279,6 @@ void initMaze() {
 int cameraAtWhichWall(point4 eye) {
 
 	for (int i = 0; i < mazeCount; i++) {
-		//int area = maze[i];
 		point4 *box = getBoxPoints(i);
 		int minX = 50000; // 假設不超過@@...
 		int minZ = 50000;// 假設不超過@@...
@@ -312,8 +311,98 @@ int cameraAtWhichWall(point4 eye) {
 
 	return -1;
 }
+//按下 上、下、左、右 會觸發的事件
+void specialInput(int key, int x, int y) {
+	float step = 1.5;
+	switch (key) {
+	case GLUT_KEY_UP:
+		up_down = 0.2;
+		break;
+	case GLUT_KEY_DOWN:
+		up_down = -0.2;
+		break;
+	case GLUT_KEY_LEFT:
+		angleNumber -= 1;
+		//do something here
+		break;
+	case GLUT_KEY_RIGHT:
+		angleNumber += 1;
+		break;
+	}
+
+	glutPostRedisplay();
+}
 void display() {
+	double angle = angleNumber * M_PI / 180;
+	//移動下一個點事前的宣告
+	point4 nextEye(eye.x, eye.y, eye.z, eye.w);
+	//為了做到整個 Camera不是完全貼牆
+	//所以我們用了nextNextEye去跟牆之間保持點距離 才不會等到 Camera完全貼到牆上才發生碰撞(這樣視線比較好)
+	//如果有按下上或下 up_down才會變化 如果是正的就是往前，負的就是往後，記得用完後要設定回0喔
+	point4 nextNextEye(eye.x, eye.y, eye.z, eye.w);
+	nextEye.x = eye.x + cos(angle) * up_down;
+	nextEye.z = eye.z + sin(angle) * up_down;
+	nextNextEye.x = eye.x + cos(angle) * up_down * 5;
+	nextNextEye.z = eye.z + sin(angle) * up_down * 5;
+	up_down = 0;
+
+	//取得目前的座標 跟 未來的座標，所在迷宮的位置
+	int cameraCurrentIndex = cameraAtWhichWall(eye);
+	int cameraFutureIndex = cameraAtWhichWall(nextNextEye);
+
+	// std::cout << "CAMERA AT: " << cameraCurrentIndex << std::endl;
+	// std::cout << "FUTURE CAMERA AT: " << cameraFutureIndex << std::endl;
+
+	//開始處理碰撞事件
+	//switch (cameraFutureIndex - cameraCurrentIndex) {
+	//case 0:
+	//	eye = nextEye;
+	//	break;
+	//case -1: // RIGHT
+	//	if (((maze_array[cameraCurrentIndex] >> 3) & 1) != 0 && ((maze_array[cameraFutureIndex] >> 1) & 1) != 0) {
+	//		eye = nextEye;
+	//	}
+
+	//	break;
+	//case -10: // BOTTOM
+	//	if (((maze_array[cameraCurrentIndex] >> 2) & 1) != 0 && (maze_array[cameraFutureIndex] & 1) != 0) {
+	//		eye = nextEye;
+	//	}
+
+	//	break;
+	//case 1: // LEFT
+	//	if (((maze_array[cameraCurrentIndex] >> 1) & 1) != 0 && ((maze_array[cameraFutureIndex] >> 3) & 1) != 0) {
+	//		eye = nextEye;
+	//	}
+
+	//	break;
+	//case 10: // TOP
+	//	if ((maze_array[cameraCurrentIndex] & 1) != 0 && ((maze_array[cameraFutureIndex] >> 2) & 1) != 0) {
+	//		eye = nextEye;
+	//	}
+
+	//	break;
+	//}
+
+
+	playerLookAtX = eye.x + cos(angle) * 10;
+	playerLookAtZ = eye.z + sin(angle) * 10;
+
+	// std::cout << eye.x << ", " << eye.y << ", " << eye.z << ", " << angleNumber << std::endl;
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	point4  at(playerLookAtX, 0.0, playerLookAtZ, 1.0);
+	vec4    up(0.0, 1.0, 0.0, 0.0);
+
+	mat4  mv = LookAt(eye, at, up);
+	glUniformMatrix4fv(model_view, 1, GL_TRUE, mv);
+
+	mat4  p = Perspective(45, (float)WINDOW_WIDTH / WINDOW_HEIGHT, zNear, zFar);
+	glUniformMatrix4fv(projection, 1, GL_TRUE, p);
+	glBindVertexArray(bufferMaze);
+	glDrawArrays(GL_TRIANGLES, 0, numVertices);
+	glEnable(GL_LIGHT0);
+	glutSwapBuffers();
 }
 
 void keyboard(unsigned char key, int x, int y) {
@@ -329,13 +418,6 @@ void keyboard(unsigned char key, int x, int y) {
 void reshape(int width, int height) {
 	glViewport(0, 0, width, height);
 }
-
-//按下 上、下、左、右 會觸發的事件
-void specialInput(int key, int x, int y) {
-
-	glutPostRedisplay();
-}
-
 int main(int argc, char **argv) {
 
 	glutInit(&argc, argv);
